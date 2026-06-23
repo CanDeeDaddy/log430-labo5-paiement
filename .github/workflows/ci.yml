@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Creer le fichier .env
+        run: |
+          cat > .env <<'EOF'
+          DB_HOST=mysql_payments
+          DB_PORT=3306
+          DB_USER=labo05
+          DB_PASSWORD=labo05
+          DB_NAME=labo05_payments_db
+          EOF
+
+      - name: Creer le reseau Docker
+        run: docker network create labo05-network || true
+
+      - name: Construire l'image payments_api
+        run: docker-compose build payments_api
+
+      - name: Demarrer MySQL
+        run: docker-compose up -d mysql_payments
+
+      - name: Attendre que MySQL soit pret
+        run: |
+          for i in $(seq 1 30); do
+            if docker-compose exec -T mysql_payments mysqladmin ping -h 127.0.0.1 -u root -proot --silent; then
+              echo "MySQL pret"; exit 0
+            fi
+            echo "Attente de MySQL... ($i)"; sleep 2
+          done
+          echo "MySQL n'a pas demarre a temps"; exit 1
+
+      - name: Lancer les tests
+        run: docker-compose run --rm payments_api python -m pytest tests/ -v
+
+      - name: Nettoyer
+        if: always()
+        run: docker-compose down -v
