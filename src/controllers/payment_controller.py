@@ -54,11 +54,16 @@ def _process_credit_card_payment(payment_data):
 
 def update_order(order_id, is_paid):
     """ Trigger order update once it is paid"""
-    response = requests.put(
-        'http://api-gateway:8080/store-manager-api/orders',
-        json={"order_id": order_id, "is_paid": is_paid},
-        headers={'Content-Type': 'application/json'}
-    )
-    if response.ok:
-        logger.debug(f"Commande {order_id} mise à jour: is_paid={is_paid}")
-    return response.ok
+    try:
+        response = requests.put(
+            'http://api-gateway:8080/store-manager-api/orders',
+            json={"order_id": order_id, "is_paid": is_paid},
+            headers={'Content-Type': 'application/json'},
+            timeout=5
+        )
+        if response.ok:
+            logger.debug(f"Commande {order_id} mise a jour: is_paid={is_paid}")
+        return response.ok
+    except requests.exceptions.RequestException as e:
+        logger.debug(f"Store Manager injoignable: {e}")
+        return False
